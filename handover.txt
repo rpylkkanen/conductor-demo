@@ -1,0 +1,124 @@
+# CONDUCTOR — Re-entry Document
+# Generated end of session. Paste this at the top of the next conversation.
+
+## WHAT THIS PROJECT IS
+A solo-dev browser autobattler (working title: Conductor).
+Core differentiator: a timed intervention window during combat where the
+player plays one "Conductor card" (redirect, buff, drain, etc.).
+Everything else serves that one mechanic.
+
+## CURRENT FILE STRUCTURE
+```
+conductor/
+├── index.html        # Shell, <script type="module">, all CSS removed to styles.css
+├── styles.css        # All styles incl. .uimg, .simg, .cimg (pixelated art)
+├── data.js           # POOL, CARDS, KW, ENEMY_BASES, TUTORIAL (pure data)
+├── state.js          # G object, newUnit, helpers (polBonus, polColor, etc.)
+├── flow.js           # processLevelQueue, applyLevelUp, onContinue, registerStartRound
+├── combat.js         # tick, resolve, endCombat, startCombat, buildEnemyRoster
+├── conductor.js      # conduct, selectCard, targetClick, resetFluxState
+├── shop.js           # buildShop, startRound, buyUnit, sellUnit, reroll, upgradeTavern
+├── render.js         # render, initEvents, all DOM writes (reads G, never writes it)
+├── opponents.js      # buildGhostBoard, scout, initRoundOpponents, applyBossEffect
+├── tutorial.js       # initTutorial, renderStep, advance
+└── assets/
+    ├── units/        # {id}.png, 64x64px pixel art, image-rendering:pixelated
+    └── cards/        # {id}.png, 64x64px pixel art
+```
+
+## KEY DESIGN DECISIONS
+- G is a single global state object in state.js. render.js reads it, never writes.
+- All event delegation lives in render.js:initEvents (one listener on document).
+- flow.js is the post-combat coordinator; breaks circular dep between combat/conductor.
+- shop.js:startRound() registers itself with flow.js via registerStartRound() on load.
+- combat.js:resolve() applies polarity rules (ORDER/CHAOS/FLUX) inline.
+- opponents.js:buildGhostBoard() generates procedural enemies; boss rounds use
+  hand-authored BOSSES dict. Boss pre-combat effect applied in startCombat().
+- Art: <img onerror> falls back to unicode sym if PNG missing.
+- Run http.server or npx serve (ES modules require HTTP, not file://).
+
+## CURRENT GAME SYSTEMS (WORKING)
+- Shop: buy/sell/reroll(1g)/upgrade-tavern(4g→tier2, 5th slot)
+- 10 units: Rifter, Tendril, Voltspawn, Stoneguard, Prismcore, Ironwarden,
+            Wraithclaw, Voidmaw, Soulbinder, Nullspike
+- Keywords: Taunt (must target), Haste (attacks first), Retaliate (+1 counter),
+            Leech (heal 1 on kill)
+- Polarity: board avg < 35 = ORDER (formation), > 65 = CHAOS (chain kill),
+            35-65 = FLUX (first Redirect free). Stat bonus: +2 ATK or +2 HP.
+- Combat: simultaneous damage trades, left-to-right, haste first, taunt override
+- Intervention window: 3.2s pause, timer bar drains, cards glow green
+- 5 conductor cards: Redirect, Bulwark, Surge, Drain, Unravel
+- Unit XP: survive combat = +1 XP, shown as "0/2 XP". At 2 XP: level-up modal
+           (choose +1 ATK or +1 HP). Dead units do NOT gain XP.
+- Scaling: enemies +1 ATK and +0.5 HP per round, no ceiling
+- Ghost boards: budget = round * 2.5g. Tier 2 pool unlocks at round 4.
+- Bosses: Round 5 = Iron Conductor (Drain 3 to all player units pre-combat)
+          Round 9 = Void Engine (Surge strongest enemy unit pre-combat)
+          Warning shown one round ahead in topbar.
+- Threat preview: topbar shows "⚔ If you lose: N dmg" during shop phase
+- Level-up buttons: fixed to use e.target.closest() not e.target.id ===
+
+## KNOWN REMAINING BUGS / GAPS
+- No healing mechanic: injured units are best sold rather than protected.
+  This undermines the XP/investment system.
+- Enemy scaling has no ceiling and no player catch-up beyond tier-up.
+- Entropy tokens exist visually but have no mechanical effect yet.
+- Snapshot ghosts (rounds 5-8 drawing from player's past boards) not yet built.
+- Formation (front/back rows) planned but not yet implemented.
+
+## NEXT FEATURE: INTERVENTION ECONOMY v1
+Agreed with both ChatGPT and Claude. Implement in this order:
+
+### 1. ARM SYSTEM (shop phase)
+- During shop, player is offered 3 cards; must choose 1 to "arm".
+- Armed card shown face-up near Conductor label in topbar/shop.
+- In combat: player may only play the armed card OR Hold.
+- If player Intervenes: armed card is discarded after combat (re-arm next round).
+- If player Holds: armed card is RETAINED for next combat (does not discard).
+- State: G.armedCard (card object or null), G.cardOptions (array of 3).
+
+### 2. HOLD REWARD (combat window)
+- During window: show two buttons alongside cards: "HOLD →" with two reward choices:
+    A) +1 Gold (applied at start of next shop phase)
+    B) +1 Insight token (new micro-resource, cap 2)
+- Insight can be spent in shop for: free Freeze OR free Reroll (one action, once).
+- State: G.pendingGold (int), G.insight (int, 0-2).
+- Intervening forfeits Hold reward for that window.
+- UI: Hold buttons only visible during window and only if not yet used this combat.
+
+### 3. TARGETING FRICTION
+- Bulwark and Surge can only target units in the FRONT ROW (or adjacent to attacker
+  once formation is implemented). For now: first two units on board (index 0-1).
+- This is a target filter in conductor.js:conduct(), not a new system.
+
+### 4. HEAT (implement after above three are stable)
+- Using intervention adds +1 Heat (G.heat, cap 3, shown in topbar).
+- Heat effect: next enemy roster gets +Heat ATK on top of normal scaling.
+- Heat decays -1 per round at start of shop phase.
+- Holding does not add Heat.
+
+## AGREED DESIGN PRINCIPLES (from ChatGPT + Claude session)
+- Skip/Hold must have a future plan attached, not a passive refund.
+- Armed card persisting on Hold creates "threat" not just "tool".
+- Window is a chess pause, never a reflex test. No APM optimization.
+- Failure states should create interesting pivots (not yet implemented).
+- Depth > breadth. No new content until existing systems are legible.
+
+## ACCEPTANCE TESTS FOR INTERVENTION ECONOMY v1
+- There are fights where correct play is Hold, even when HP could be saved.
+- Arming a card produces planning ("I arm Surge because next fight has Taunt wall").
+- At least once per run, armed card is carried across multiple combats.
+- "Buff weakest" is no longer always available (targeting friction).
+
+## CONTENT TARGETS (not yet built, for reference)
+- 40 units total (10 built), 3 Conductor identities, 8 module types
+- Round 5 and Round 9 bosses (built), Round 10 = escape/win condition
+- Reroll token (Insight sink), Freeze button (0g, lock shop to next round)
+- Healing: 1g = +1 HP on a unit (capped at maxhp) — highest priority gap
+
+## HOW TO RUN
+```bash
+cd conductor
+python -m http.server 8000
+# open http://localhost:8000
+```

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CONDUCTOR</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07070f;--surface:#10101e;--border:#252538;
+  --gold:#c8a044;--text:#b0a898;--dim:#4a4560;
+  --order:#3a6fff;--chaos:#ff3a50;--entropy:#44ffaa;
+  --green:#44dd88;--red:#ff4455;
+}
+body{background:var(--bg);color:var(--text);font-family:Georgia,serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 18px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;gap:12px}
+.title{font-size:1em;letter-spacing:.4em;color:var(--gold);text-transform:uppercase}
+.stats{display:flex;gap:20px;font-size:.8em}
+.stat{display:flex;align-items:center;gap:5px}
+.sicon{color:var(--gold)}.sval{color:#fff;font-weight:bold}
+.pill{padding:2px 10px;border-radius:20px;font-size:.65em;letter-spacing:.15em;text-transform:uppercase;font-weight:bold}
+.pill-shop{background:rgba(200,160,68,.12);color:var(--gold);border:1px solid rgba(200,160,68,.4)}
+.pill-combat{background:rgba(255,58,80,.12);color:var(--chaos);border:1px solid rgba(255,58,80,.4)}
+.pill-result{background:rgba(68,255,170,.1);color:var(--entropy);border:1px solid rgba(68,255,170,.3)}
+#main{flex:1;display:flex;flex-direction:column;padding:10px 14px;gap:7px;overflow:hidden}
+.blabel{font-size:.65em;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;margin-bottom:4px}
+.board{display:flex;gap:8px;align-items:flex-end;min-height:108px;flex-wrap:wrap}
+.slot{width:84px;height:108px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:.65em}
+.ucard{width:84px;height:108px;background:var(--surface);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;padding:7px 5px 5px;position:relative;overflow:hidden;transition:border-color .15s,transform .1s}
+.ucard:hover{border-color:#3a3a5a}
+.ucard.attacking{border-color:var(--chaos);transform:scale(1.06)}
+.ucard.targeted{border-color:var(--red)}
+.ucard.dead{opacity:.25;filter:grayscale(1)}
+.ucard.selectable{border-color:var(--gold);box-shadow:0 0 8px rgba(200,160,68,.4);cursor:pointer}
+.ucard.selectable:hover{box-shadow:0 0 14px rgba(200,160,68,.6)}
+@keyframes flashRed{0%{background:rgba(255,60,80,.4)}100%{background:transparent}}
+.ucard.flash{animation:flashRed .5s ease-out}
+.usym{font-size:1.85em;line-height:1;margin-bottom:3px}
+.uname{font-size:.58em;letter-spacing:.04em;color:var(--dim);text-align:center;margin-bottom:5px}
+.ustats{display:flex;gap:6px;font-size:.75em}
+.uatk{color:var(--chaos)}.uhp{color:var(--green)}
+.uhp.damaged{color:#ffcc44}
+.polbar{position:absolute;bottom:0;left:0;right:0;height:3px}
+.hpbar{position:absolute;bottom:3px;left:5px;right:5px;height:2px;background:#181828;border-radius:1px}
+.hpfill{height:100%;border-radius:1px;transition:width .3s}
+.entbadge{position:absolute;top:3px;right:3px;background:var(--entropy);color:#020f06;font-size:.55em;font-weight:bold;width:13px;height:13px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.sellbtn{position:absolute;top:2px;left:2px;font-size:.5em;color:var(--chaos);border:1px solid var(--chaos);border-radius:2px;padding:1px 3px;cursor:pointer;background:var(--bg);opacity:0;transition:opacity .2s;z-index:2}
+.ucard:hover .sellbtn{opacity:1}
+.plabel{font-size:.5em;color:var(--dim);margin-top:2px}
+#logbar{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:7px 12px;font-size:.78em;display:flex;align-items:center;gap:10px;flex-shrink:0;min-height:36px}
+.logtext{flex:1}.logtag{color:var(--dim);font-size:.8em;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+#bottom{flex-shrink:0;padding-top:6px;border-top:1px solid var(--border)}
+#shop{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.sunit{width:84px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 5px;cursor:pointer;text-align:center;transition:border-color .15s}
+.sunit:hover:not(.unafford){border-color:var(--gold)}
+.sunit.unafford{opacity:.45;cursor:not-allowed}
+.scost{font-size:.7em;color:var(--gold);margin-top:3px}
+.shop-actions{display:flex;flex-direction:column;gap:6px;margin-left:auto;align-items:flex-end}
+.bonus-note{font-size:.65em;color:var(--gold);margin-bottom:2px}
+.btn{padding:6px 14px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:Georgia,serif;font-size:.78em;cursor:pointer;letter-spacing:.05em;transition:border-color .15s,color .15s;border-radius:3px}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+.btn.primary{border-color:rgba(200,160,68,.5);color:var(--gold)}
+.btn.primary:hover{background:rgba(200,160,68,.08)}
+#conductor{display:flex;gap:8px;align-items:flex-start}
+.clabel{display:flex;flex-direction:column;gap:3px;justify-content:center;min-width:80px}
+.clabel-title{font-size:.65em;letter-spacing:.15em;color:var(--dim);text-transform:uppercase}
+.clabel-note{font-size:.62em;color:var(--dim)}
+.clabel-note.active{color:var(--gold)}
+.ccard{width:96px;background:var(--surface);border:1px solid #2a2a44;border-radius:6px;padding:7px;cursor:pointer;transition:border-color .15s,box-shadow .15s;text-align:center}
+.ccard:hover:not(.cused){border-color:var(--gold)}
+.ccard.csel{border-color:var(--gold);box-shadow:0 0 10px rgba(200,160,68,.35)}
+.ccard.cused{opacity:.4;cursor:not-allowed}
+.csym{font-size:1.3em;display:block;margin-bottom:3px;color:var(--gold)}
+.cname{font-size:.65em;color:#fff;font-weight:bold;display:block;margin-bottom:2px}
+.cdesc{font-size:.55em;color:var(--dim);line-height:1.35}
+
+/* OVERLAYS */
+#overlay,#tutorial{position:fixed;inset:0;background:rgba(7,7,15,.9);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:100}
+.rtitle{font-size:1.9em;letter-spacing:.35em;text-transform:uppercase}
+.rtitle.win{color:var(--gold)}.rtitle.loss{color:var(--chaos)}.rtitle.draw{color:var(--dim)}
+.rsub{font-size:.82em;color:var(--dim);text-align:center;max-width:300px;line-height:1.7}
+
+/* TUTORIAL */
+.tbox{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:28px 32px;max-width:360px;display:flex;flex-direction:column;gap:14px}
+.tstep{font-size:.62em;letter-spacing:.25em;text-transform:uppercase;color:var(--dim)}
+.ttitle{font-size:1.25em;color:var(--gold);letter-spacing:.08em}
+.tbody{font-size:.82em;color:var(--text);line-height:1.7}
+.tbody strong{color:#fff}
+.tfoot{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.tdots{display:flex;gap:5px}
+.tdot{width:6px;height:6px;border-radius:50%;background:var(--border)}
+.tdot.active{background:var(--gold)}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="title">Conductor</div>
+  <div class="stats">
+    <div class="stat"><span class="sicon">♥</span><span class="sval" id="shp">30</span></div>
+    <div class="stat"><span class="sicon">◈</span><span class="sval" id="srd">Round 1</span></div>
+    <div class="stat" id="sgwrap"><span class="sicon">🪙</span><span class="sval" id="sgold">3</span></div>
+  </div>
+  <div class="pill pill-shop" id="sphase">Shop</div>
+</div>
+
+<div id="main">
+  <div id="esec"><div class="blabel">Opponent</div><div class="board" id="eboard"></div></div>
+  <div id="logbar" style="display:none"><span class="logtext" id="ltext">—</span><span class="logtag" id="ltag"></span></div>
+  <div id="psec"><div class="blabel">Your Board</div><div class="board" id="pboard"></div></div>
+  <div id="bottom"><div id="shop"></div><div id="conductor" style="display:none"></div></div>
+</div>
+
+<!-- Result overlay -->
+<div id="overlay">
+  <div class="rtitle" id="rtitle">Victory</div>
+  <div class="rsub" id="rsub"></div>
+  <button class="btn primary" id="rbtn">Continue</button>
+</div>
+
+<!-- Tutorial overlay -->
+<div id="tutorial">
+  <div class="tbox">
+    <div class="tstep" id="tstep">Step 1 of 4</div>
+    <div class="ttitle" id="ttitle"></div>
+    <div class="tbody" id="tbody"></div>
+    <div class="tfoot">
+      <div class="tdots" id="tdots"></div>
+      <button class="btn primary" id="tnext">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────
+
+const UNITS = [
+  {id:'voltspawn', name:'Voltspawn', atk:3, hp:2, pol:85, sym:'⚡', cost:3},
+  {id:'stoneguard',name:'Stoneguard',atk:1, hp:6, pol:15, sym:'⬡', cost:3},
+  {id:'rifter',    name:'Rifter',    atk:2, hp:3, pol:50, sym:'◈', cost:2},
+  {id:'wraithclaw',name:'Wraithclaw',atk:4, hp:2, pol:10, sym:'✦', cost:4},
+  {id:'tendril',   name:'Tendril',   atk:1, hp:5, pol:75, sym:'❋', cost:2},
+  {id:'prismcore', name:'Prismcore', atk:2, hp:4, pol:50, sym:'◇', cost:3},
+  {id:'voidmaw',   name:'Voidmaw',   atk:5, hp:1, pol:90, sym:'◉', cost:4},
+  {id:'ironwarden',name:'Ironwarden',atk:2, hp:4, pol:20, sym:'▣', cost:3},
+];
+
+const CARDS = [
+  {id:'redirect',name:'Redirect',sym:'↺',desc:'Retarget the current player attack to another enemy',tgt:'enemy'},
+  {id:'bulwark', name:'Bulwark', sym:'⛨',desc:'Give a friendly unit +3 HP right now',tgt:'friendly'},
+  {id:'surge',   name:'Surge',   sym:'↑',desc:'Give a friendly unit +2 ATK this combat',tgt:'friendly'},
+  {id:'drain',   name:'Drain',   sym:'◎',desc:'Deal 3 damage spread across random enemies',tgt:null},
+  {id:'unravel', name:'Unravel', sym:'≋',desc:'Remove 3 entropy from a friendly unit',tgt:'friendly'},
+];
+
+const ENEMY_ROSTERS = [
+  ['rifter','stoneguard'],
+  ['voltspawn','tendril','rifter'],
+  ['wraithclaw','ironwarden','prismcore'],
+  ['voidmaw','stoneguard','wraithclaw'],
+];
+
+const TUTORIAL_STEPS = [
+  {
+    title:'The Shop',
+    body:'Each round begins here. <strong>Buy units</strong> with 🪙 gold (up to 4 slots). Hover a unit on your board and click <strong>sell</strong> to reclaim 1 gold. Press <strong>⚔ Fight</strong> when ready.'
+  },
+  {
+    title:'Combat & Counter-Damage',
+    body:'Units trade blows <strong>simultaneously</strong> — attackers take return damage too. A fragile unit with high ATK is a double-edged sword. Units that survive carry their <strong>current HP</strong> into the next round.'
+  },
+  {
+    title:'The Conductor Hand',
+    body:'During combat you hold <strong>3 Conductor cards</strong>. You may play <strong>one</strong> per fight. Click a card to select it, then click a valid unit to apply it. <em>Redirect</em> works only while your unit is mid-attack — watch the log.'
+  },
+  {
+    title:'Polarity & Entropy',
+    body:'Each unit leans <strong>Order ↔ Chaos</strong>. A balanced board (40–60 avg) grants +1 ATK. Extreme boards grant +1 HP. Losing a fight adds <strong>Entropy</strong> tokens (⬡) to survivors — a warning of deeper mutation ahead.'
+  },
+];
+
+// ── STATE ─────────────────────────────────────────────────────
+
+let _uid = 0;
+const mkUnit = t => ({...t, uid:_uid++, chp:t.hp, maxhp:t.hp, entropy:0, dead:false});
+const rand = a => a[Math.floor(Math.random()*a.length)];
+const shuffle = a => [...a].sort(()=>Math.random()-.5);
+const living = b => b.filter(u=>!u.dead && u.chp>0);
+
+const G = {
+  phase:'shop', round:1, hp:30, gold:3,
+  pboard:[], eboard:[],
+  shop:[], chand:[], cused:false, csel:null,
+  cb:{ pb:[], eb:[], log:'', tag:'', attacker:null, target:null, pturn:false,
+       tickIdx:0, over:false, result:null, flashUids:[] },
+};
+
+// ── POLARITY ─────────────────────────────────────────────────
+
+const polColor = p => {
+  const r=Math.round(58+(255-58)*(p/100));
+  const g=Math.round(112-74*(p/100));
+  const b=Math.round(255-(255-80)*(p/100));
+  return `rgb(${r},${g},${b})`;
+};
+const polLabel = p => p>65?'Chaos':p<35?'Order':'Flux';
+const polBonus = board => {
+  if(!board.length) return {atk:0,hp:0,note:null};
+  const avg = board.reduce((s,u)=>s+u.pol,0)/board.length;
+  if(avg>=40&&avg<=60) return {atk:1,hp:0,note:'◈ Balanced — +1 ATK'};
+  if(avg<30||avg>70)   return {atk:0,hp:1,note:'◈ Extreme — +1 HP'};
+  return {atk:0,hp:0,note:null};
+};
+
+// ── GAME LOGIC ────────────────────────────────────────────────
+
+function startRound() {
+  const idx = Math.min(G.round-1, ENEMY_ROSTERS.length-1);
+  G.eboard = ENEMY_ROSTERS[idx].map(id=>mkUnit(UNITS.find(u=>u.id===id)));
+  G.shop = shuffle(UNITS).slice(0,4).map(t=>({...t}));
+  G.gold = 3+Math.floor(G.round/2);
+  G.phase = 'shop';
+  G.csel = null;
+  render();
+}
+
+function buyUnit(i) {
+  const u=G.shop[i]; if(!u) return;
+  if(G.gold<u.cost||G.pboard.length>=4) return;
+  G.gold-=u.cost;
+  G.pboard.push(mkUnit(u));
+  G.shop.splice(i,1);
+  render();
+}
+
+function sellUnit(uid) {
+  const i=G.pboard.findIndex(u=>u.uid===uid); if(i<0) return;
+  G.pboard.splice(i,1); G.gold+=1; render();
+}
+
+let _tick=null;
+
+function startCombat() {
+  if(!G.pboard.length) return;
+  const pb=polBonus(G.pboard), eb=polBonus(G.eboard);
+  G.cb.pb = G.pboard.map(u=>({...u,chp:u.chp+pb.hp,maxhp:u.maxhp+pb.hp,atk:u.atk+pb.atk,dead:false}));
+  G.cb.eb = G.eboard.map(u=>({...u,chp:u.chp+eb.hp,maxhp:u.maxhp+eb.hp,atk:u.atk+eb.atk,dead:false}));
+  G.cb.tickIdx=0; G.cb.over=false; G.cb.result=null;
+  G.cb.log='Combat begins…'; G.cb.tag='';
+  G.cb.attacker=null; G.cb.target=null; G.cb.flashUids=[];
+  G.chand=shuffle(CARDS).slice(0,3);
+  G.cused=false; G.csel=null;
+  G.phase='combat';
+  render();
+  _tick=setTimeout(tick,1100);
+}
+
+function tick() {
+  const pa=living(G.cb.pb), ea=living(G.cb.eb);
+  if(!pa.length||!ea.length){endCombat();return;}
+  const t=G.cb.tickIdx, pturn=(t%2===0);
+  G.cb.pturn=pturn;
+  let att, tgt;
+  if(pturn){ att=pa[Math.floor(t/2)%pa.length]||pa[0]; tgt=ea[0]; }
+  else      { att=ea[Math.floor(t/2)%ea.length]||ea[0]; tgt=pa[0]; }
+  G.cb.attacker=att; G.cb.target=tgt;
+  G.cb.log=`${att.name} clashes with ${tgt.name}…`;
+  G.cb.tag=pturn?'⚔ Your attack':'⚔ Enemy attack';
+  G.cb.tickIdx++;
+  render();
+  _tick=setTimeout(resolve,1600);
+}
+
+function resolve() {
+  const {attacker:att, target:tgt} = G.cb;
+  if(!att||!tgt||tgt.dead){
+    G.cb.log='—'; G.cb.tag='';
+    render(); _tick=setTimeout(tick,700); return;
+  }
+
+  // Mutual damage — both units strike simultaneously
+  const dmgToTgt = att.atk;
+  const dmgToAtt = tgt.atk;
+  tgt.chp -= dmgToTgt;
+  att.chp -= dmgToAtt;
+
+  G.cb.flashUids = [tgt.uid, att.uid];
+  if(tgt.chp<=0) tgt.dead=true;
+  if(att.chp<=0) att.dead=true;
+
+  const lines=[];
+  if(att.dead && tgt.dead) lines.push(`Both ${att.name} and ${tgt.name} fall.`);
+  else if(att.dead)  lines.push(`${att.name} strikes ${tgt.name} for ${dmgToTgt} but is slain by the counter (${dmgToAtt}).`);
+  else if(tgt.dead)  lines.push(`${att.name} slays ${tgt.name} (${dmgToTgt} dmg, took ${dmgToAtt} counter).`);
+  else               lines.push(`${att.name} deals ${dmgToTgt}, takes ${dmgToAtt} — ${att.chp} vs ${tgt.chp} HP remain.`);
+  G.cb.log=lines.join(' ');
+  G.cb.tag='';
+  G.cb.attacker=null; G.cb.target=null;
+  render();
+  setTimeout(()=>{G.cb.flashUids=[];},400);
+  _tick=setTimeout(tick,950);
+}
+
+function endCombat() {
+  clearTimeout(_tick);
+  const pa=living(G.cb.pb), ea=living(G.cb.eb);
+  let res;
+  if(pa.length&&!ea.length)     {res='win'; G.cb.log='Victory — your board holds.';}
+  else if(ea.length&&!pa.length){res='loss';G.cb.log='Defeat — entropy spreads through your survivors.';}
+  else                          {res='draw';G.cb.log='Draw — both sides fall.';}
+  G.cb.result=res; G.cb.over=true;
+
+  if(res==='loss'){
+    const dmg=ea.reduce((s,u)=>s+u.atk,0); G.hp=Math.max(0,G.hp-dmg);
+    G.pboard.forEach(u=>u.entropy+=2);
+  }
+
+  // Sync surviving units' true HP back to player board
+  G.cb.pb.forEach(cu=>{
+    const u=G.pboard.find(x=>x.uid===cu.uid);
+    if(u){ u.chp=cu.chp; u.dead=cu.dead; }
+  });
+  G.pboard=G.pboard.filter(u=>!u.dead && u.chp>0);
+
+  G.phase='result'; render();
+  setTimeout(()=>{
+    const ov=document.getElementById('overlay'),
+          rt=document.getElementById('rtitle'),
+          rs=document.getElementById('rsub');
+    if(G.hp<=0){
+      rt.textContent='Eliminated'; rt.className='rtitle loss';
+      rs.textContent='Your HP reached zero. The campaign ends here. Refresh to begin again.';
+      document.getElementById('rbtn').style.display='none';
+    } else {
+      if(res==='win') {rt.textContent='Victory';rt.className='rtitle win';rs.textContent='Your board stands. Survivors carry their HP into the next round.';}
+      else if(res==='loss'){rt.textContent='Defeat';rt.className='rtitle loss';rs.textContent='You lose HP. Entropy marks your survivors — they persist but carry the weight of it.';}
+      else {rt.textContent='Draw';rt.className='rtitle draw';rs.textContent='Both armies fall. Your board resets to its pre-combat state.';}
+    }
+    ov.style.display='flex';
+  },700);
+}
+
+function conduct(cardId, targetUid) {
+  if(G.cused) return;
+  const card=CARDS.find(c=>c.id===cardId); if(!card) return;
+  const pb=G.cb.pb, eb=G.cb.eb;
+  if(card.id==='redirect'){
+    if(!G.cb.pturn||!G.cb.attacker){G.cb.log='No player attack in progress to redirect.';G.csel=null;render();return;}
+    const nt=eb.find(u=>u.uid===targetUid&&!u.dead);
+    if(nt){clearTimeout(_tick);G.cb.target=nt;G.cb.log=`Redirected — ${G.cb.attacker.name} now clashes with ${nt.name}…`;G.cused=true;G.csel=null;render();_tick=setTimeout(resolve,800);return;}
+  }
+  if(card.id==='bulwark'){const u=pb.find(u=>u.uid===targetUid&&!u.dead);if(u){u.chp+=3;u.maxhp+=3;G.cb.log=`Bulwark — ${u.name} gains +3 HP.`;}}
+  if(card.id==='surge')  {const u=pb.find(u=>u.uid===targetUid&&!u.dead);if(u){u.atk+=2;G.cb.log=`Surge — ${u.name} gains +2 ATK.`;}}
+  if(card.id==='drain'){
+    let rem=3; const al=living(eb);
+    while(rem>0&&al.filter(u=>!u.dead).length){
+      const t=rand(al.filter(u=>!u.dead));const d=Math.min(2,rem);t.chp-=d;rem-=d;if(t.chp<=0)t.dead=true;
+    }
+    G.cb.log='Drain — 3 damage scattered among enemies.';
+  }
+  if(card.id==='unravel'){
+    const pu=G.pboard.find(u=>u.uid===targetUid);
+    if(pu){pu.entropy=Math.max(0,pu.entropy-3);G.cb.log=`Unravel — entropy dispersed from ${pu.name}.`;}
+  }
+  G.cused=true; G.csel=null; render();
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+
+function mkUnitHTML(u, opts) {
+  const {enemy=false,click=false,combat=false}=opts;
+  const pct=u.chp/u.maxhp;
+  const hpColor=pct>.5?'var(--green)':pct>.25?'#ffcc44':'var(--red)';
+  const isDamaged=u.chp<u.maxhp;
+  const cls=['ucard',
+    G.cb.attacker?.uid===u.uid?'attacking':'',
+    G.cb.target?.uid===u.uid?'targeted':'',
+    G.cb.flashUids?.includes(u.uid)?'flash':'',
+    u.dead?'dead':'',click?'selectable':''
+  ].join(' ');
+  const sell=(!combat&&!enemy)?`<div class="sellbtn" data-sell="${u.uid}">sell</div>`:'';
+  const ent=u.entropy>0?`<div class="entbadge">${u.entropy}</div>`:'';
+  const hpbar=`<div class="hpbar"><div class="hpfill" style="width:${Math.max(0,pct)*100}%;background:${hpColor}"></div></div>`;
+  return `<div class="ucard ${cls}" data-uid="${u.uid}" data-enemy="${enemy?1:0}">
+    ${sell}${ent}
+    <div class="usym">${u.sym}</div>
+    <div class="uname">${u.name}</div>
+    <div class="ustats"><span class="uatk">${u.atk}⚔</span><span class="uhp${isDamaged?' damaged':''}">${u.chp}♥</span></div>
+    <div class="plabel">${polLabel(u.pol)}</div>
+    <div class="polbar" style="background:${polColor(u.pol)};opacity:.55"></div>
+    ${hpbar}
+  </div>`;
+}
+
+function render() {
+  document.getElementById('shp').textContent=G.hp;
+  document.getElementById('srd').textContent=`Round ${G.round}`;
+  document.getElementById('sgold').textContent=G.gold;
+  document.getElementById('sgwrap').style.display=G.phase==='shop'?'flex':'none';
+  const ph=document.getElementById('sphase');
+  if(G.phase==='shop')    {ph.textContent='Shop';  ph.className='pill pill-shop';}
+  else if(G.phase==='combat'){ph.textContent='Combat';ph.className='pill pill-combat';}
+  else                    {ph.textContent='Result';ph.className='pill pill-result';}
+
+  const inCombat=G.phase==='combat'||G.phase==='result';
+  const fc=G.csel&&!G.cused;
+  const friendlyClick=fc&&G.csel.tgt==='friendly';
+  const enemyClick=fc&&G.csel.tgt==='enemy';
+
+  const renderBoard=(units,enemy)=>{
+    const board=inCombat?(enemy?G.cb.eb:G.cb.pb):units;
+    if(!board.length) return [1,2,3].map(()=>`<div class="slot">—</div>`).join('');
+    const click=enemy?enemyClick:friendlyClick;
+    return board.map(u=>mkUnitHTML(u,{enemy,click,combat:inCombat})).join('');
+  };
+  document.getElementById('eboard').innerHTML=renderBoard(G.eboard,true);
+  document.getElementById('pboard').innerHTML=renderBoard(G.pboard,false);
+
+  const lb=document.getElementById('logbar');
+  if(inCombat){
+    lb.style.display='flex';
+    document.getElementById('ltext').textContent=G.cb.log;
+    document.getElementById('ltag').textContent=G.cb.over?'':G.cb.tag;
+  } else lb.style.display='none';
+
+  const shopEl=document.getElementById('shop');
+  const condEl=document.getElementById('conductor');
+
+  if(G.phase==='shop'){
+    shopEl.style.display='flex'; condEl.style.display='none';
+    const b=polBonus(G.pboard);
+    shopEl.innerHTML=`
+      ${G.shop.map((u,i)=>`
+        <div class="${G.gold<u.cost||G.pboard.length>=4?'sunit unafford':'sunit'}" data-buy="${i}">
+          <div style="font-size:1.7em">${u.sym}</div>
+          <div style="font-size:.6em;color:var(--dim)">${u.name}</div>
+          <div style="font-size:.65em"><span style="color:var(--chaos)">${u.atk}⚔</span> <span style="color:var(--green)">${u.hp}♥</span></div>
+          <div class="scost">🪙${u.cost}</div>
+        </div>`).join('')}
+      <div class="shop-actions">
+        ${b.note?`<div class="bonus-note">${b.note}</div>`:''}
+        <div style="font-size:.65em;color:var(--dim)">${G.pboard.length}/4 units</div>
+        <button class="btn primary" id="fightbtn">⚔ Fight</button>
+      </div>`;
+    document.getElementById('fightbtn')?.addEventListener('click',startCombat);
+  } else if(G.phase==='combat'){
+    shopEl.style.display='none'; condEl.style.display='flex';
+    const note=G.cused
+      ?'<span style="color:var(--dim)">Intervention used.</span>'
+      :(G.csel
+        ?`<span class="clabel-note active">Select a ${G.csel.tgt==='enemy'?'target':'friendly unit'}…</span>`
+        :'<span class="clabel-note">Play once this combat.</span>');
+    condEl.innerHTML=`
+      <div class="clabel"><div class="clabel-title">Conductor</div>${note}</div>
+      ${G.chand.map(c=>`
+        <div class="ccard ${G.cused?'cused':''} ${G.csel?.id===c.id?'csel':''}" data-conduct="${c.id}">
+          <span class="csym">${c.sym}</span>
+          <span class="cname">${c.name}</span>
+          <span class="cdesc">${c.desc}</span>
+        </div>`).join('')}`;
+  } else {
+    shopEl.style.display='none'; condEl.style.display='none';
+  }
+}
+
+// ── TUTORIAL ──────────────────────────────────────────────────
+
+let tIdx=0;
+function renderTutorial(){
+  const s=TUTORIAL_STEPS[tIdx];
+  document.getElementById('tstep').textContent=`Step ${tIdx+1} of ${TUTORIAL_STEPS.length}`;
+  document.getElementById('ttitle').textContent=s.title;
+  document.getElementById('tbody').innerHTML=s.body;
+  document.getElementById('tdots').innerHTML=TUTORIAL_STEPS.map((_,i)=>`<div class="tdot${i===tIdx?' active':''}"></div>`).join('');
+  document.getElementById('tnext').textContent=tIdx<TUTORIAL_STEPS.length-1?'Next →':'Play →';
+}
+document.getElementById('tnext').addEventListener('click',()=>{
+  if(tIdx<TUTORIAL_STEPS.length-1){tIdx++;renderTutorial();}
+  else{document.getElementById('tutorial').style.display='none';}
+});
+
+// ── EVENTS ────────────────────────────────────────────────────
+
+document.addEventListener('click',e=>{
+  const buy=e.target.closest('[data-buy]');
+  if(buy){buyUnit(+buy.dataset.buy);return;}
+  const sell=e.target.closest('[data-sell]');
+  if(sell){e.stopPropagation();sellUnit(+sell.dataset.sell);return;}
+  const cd=e.target.closest('[data-conduct]');
+  if(cd&&!G.cused){
+    const id=cd.dataset.conduct, card=CARDS.find(c=>c.id===id);if(!card)return;
+    if(card.tgt===null){conduct(id,null);}
+    else{G.csel=(G.csel?.id===id)?null:card;render();}
+    return;
+  }
+  const uu=e.target.closest('[data-uid]');
+  if(uu&&G.csel&&!G.cused){
+    const uid=+uu.dataset.uid, enemy=uu.dataset.enemy==='1';
+    if((G.csel.tgt==='enemy'&&enemy)||(G.csel.tgt==='friendly'&&!enemy))conduct(G.csel.id,uid);
+    return;
+  }
+  if(e.target.id==='rbtn'){
+    document.getElementById('overlay').style.display='none';
+    G.round++;startRound();
+  }
+});
+
+// ── INIT ──────────────────────────────────────────────────────
+G.pboard.push(mkUnit(UNITS.find(u=>u.id==='rifter')));
+startRound();
+renderTutorial();
+document.getElementById('tutorial').style.display='flex';
+</script>
+</body>
+</html>
